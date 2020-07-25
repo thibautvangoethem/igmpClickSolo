@@ -47,9 +47,10 @@ class MembershipQuery: public Element {
 		void setMaxResp(int max);
 		int getMaxResp();
 		void setGroupAddr(uint32_t group);
+		bool getSFlag();
 		void setSFlag(bool flag);
-		void setQRV(int qrv);
 		int getQRV();
+		void setQRV(int qrv);
 		void setQQIC(int qqic);
 		int getQQIC();
 		void addSource(uint32_t source);

@@ -31,6 +31,10 @@ CLICK_DECLS
     void MembershipQuery::setSFlag(bool flag){
         sFlag=flag;
     }
+
+    bool MembershipQuery::getSFlag(){
+        return sFlag;
+    }
     void MembershipQuery::setQRV(int qrv){
         if (qrv > 7){
             QRV=0;

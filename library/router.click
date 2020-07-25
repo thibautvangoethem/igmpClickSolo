@@ -18,7 +18,7 @@ elementclass Router {
 	client1_arpq :: ARPQuerier($client1_address);
 	client2_arpq :: ARPQuerier($client2_address); 
 	//igmp stuff
-	igmp::IGMPRouterMembershipHandler(224.0.0.1,$server_address,$client1_address,$client2_address,interval 20);
+	igmp::IGMPRouterMembershipHandler(224.0.0.1,$server_address,$client1_address,$client2_address,interval 20,responseInterval 50);
 	igmp[0]->server_arpq;
 	igmp[1]->client1_arpq;
 	igmp[2]->client2_arpq;

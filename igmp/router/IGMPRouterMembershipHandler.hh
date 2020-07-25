@@ -113,7 +113,8 @@ class IGMPRouterMembershipHandler : public Element {
 
 		static void handleExpiryLastMemberQueryTimer(Timer*, void *);
 
-		static void handleExpirySQT(Timer*, void *);
+		// Handles both the expiring of the normal query interval timer and the startup query timer
+		static void handleExpiryQT(Timer*, void *);
 
 		void expireLMQT(InterfaceReceptionState*);
 		
