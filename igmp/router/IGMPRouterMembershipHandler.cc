@@ -79,7 +79,6 @@ void IGMPRouterMembershipHandler::removeInterface(InterfaceReceptionState* inter
 			removedPosition = recordIndex;
 		}
 	}
-	// click_chatter("aaa");
 	if(removedPosition != NULL){
 		interfaces.erase(removedPosition);
 	} else {
@@ -128,11 +127,10 @@ void IGMPRouterMembershipHandler::sendGeneralQuery(){
 
 void IGMPRouterMembershipHandler::run_timer(Timer* t){
 	// This timer isnt used anymore as it is also triggered by the expiring of the group membership timer
-	// and removing this timer causes linking errors, so it will remain here
+	// and removing this timer causes linking errors, so it will remain here, empty
 }
 
 void IGMPRouterMembershipHandler::handleExpiryQT(Timer* t, void * counter){
-	click_chatter("timer1 expires");
 	startUpQueryTimerData* data = reinterpret_cast<startUpQueryTimerData *>(counter);
 
 	data->me->sendGeneralQuery();
@@ -143,7 +141,6 @@ void IGMPRouterMembershipHandler::handleExpiryQT(Timer* t, void * counter){
 		newStartupQueryTimer->initialize(data->me);
 		newStartupQueryTimer->schedule_after_sec((int)( data->me->querierInterval));
 
-		// delete data;
 	//We use the 1/4 querierinterval time for next general query as startup query interval 
 	}else{
 		//reset timer
@@ -164,12 +161,10 @@ void IGMPRouterMembershipHandler::expireLMQT(InterfaceReceptionState* receptionS
 		}
 	}
 	delete (*toRemove)->receptionState;
-	// click_chatter("doe ik dit?");
 	lmqtDataVec.erase(toRemove);
 }
 
 void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, void * counter) {
-	// click_chatter("timer3 expires");
 	lastMemberQueryTimerData* data = reinterpret_cast<lastMemberQueryTimerData *>(counter);
 	data->count--;
 	if (data->count == 0){
@@ -181,7 +176,6 @@ void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, vo
 		mePtr->expireLMQT(data->receptionState);
 	}else{
 		//send query
-		click_chatter("doing that");
 		MembershipQuery change = data->me->makeGroupSpecificQuery(data->address.s_addr);
 		change.setSFlag(true);
 
@@ -206,7 +200,6 @@ void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, vo
 void IGMPRouterMembershipHandler::push(int port, Packet *p){
 	//if the port is 0 it is a udp packet from the server and should be distributed correctly
 	if(port==0){
-		// click_chatter("udp packet is binnen");
 		handleUDPPacket(port,p);
 		return;
 	}else{
@@ -221,16 +214,12 @@ void IGMPRouterMembershipHandler::push(int port, Packet *p){
 }
 
 void IGMPRouterMembershipHandler::handleUDPPacket(int interface,Packet* p){
-	/**debug
-	click_chatter("got udp");
-	**/
 	WritablePacket* q=p->uniqueify();
 	click_ip* iphOfUdp=(click_ip*)q->data();
 	igmp_udp* udp=(igmp_udp*)iphOfUdp+1;
 
 	//check ip checksum
 	int checksumBefore=iphOfUdp->ip_sum;
-    //iphOfUdp->ip_sum=0;
     uint16_t checksum= click_in_cksum((unsigned char *) iphOfUdp, sizeof(click_ip));
     if(checksum!=0){
         click_chatter("checksum of ip incorrect");
@@ -243,42 +232,11 @@ void IGMPRouterMembershipHandler::handleUDPPacket(int interface,Packet* p){
 	//as this calculation wasnt as the ip header, and was quite difficult to implement i used a click element in the router click script
 	
 	for(InterfaceReceptionState* i : interfaces){
-		//click_chatter("state %d",i->multicast);
-		//we check if multicast is ok, and if the filtermode is exclude. If exclude it should forward packets as there is never a list of sources.
-		// if(i->multicast==iphOfUdp->ip_dst){
-		// 	if(i->filterMode){
-		// 		click_chatter("interface %d mode include",i->interface);
-		// 	}else{
-		// 		click_chatter("interface %d mode exclude",i->interface);
-		// 	}
-		// }
-		
-
-	
 		if(i->multicast==iphOfUdp->ip_dst&& !i->filterMode){
-			/**debug
-			 * */
-			
-			/**
-			**/
-			for(InterfaceReceptionState* i: interfaces){
-				//click_chatter("timer6 state: %d",i->multicast);
-			}
-			
 			Packet *q=p->clone();
-			//click_chatter("address q: %p",q);
-			//click_chatter("size q q: %d",sizeof(q));
-			//click_chatter("address interface: %p",i);
-			for(InterfaceReceptionState* i: interfaces){
-				//click_chatter("timer7 state: %d",i->multicast);
-			}
 			if(q){
-				//click_chatter("send udp to %d",i->interface);
-				output(i->interface).push(q);
-				
+				output(i->interface).push(q);	
 			}
-			
-			//if (Packet *q = p->clone())output(i->interface).push(q);
 		}
 		
 	}
@@ -475,7 +433,6 @@ void IGMPRouterMembershipHandler::add_handlers(){
 
 
 void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interface,V3Membership* mem){
-	// click_chatter("trace4");
 	for(int recordNumber=0;recordNumber<mem->getRecords().size();recordNumber++){
 		GroupRecord rec=mem->getRecords()[recordNumber];
 		bool found=false;
@@ -483,22 +440,18 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 		Vector<InterfaceReceptionState *> toErase=Vector<InterfaceReceptionState *>();
 		for(InterfaceReceptionState* i : interfaces){
 			if(i->interface==interface&&i->multicast==rec.getMulticast()){
-				// click_chatter("trace1");
 				found=true;
 				//change to include mode
 				if(rec.getRecordType()==3 &&!i->filterMode){
-					// click_chatter("trace3");
 					//we check if there is already a lmqtData being used.
 					bool exist = false;
 					for(lastMemberQueryTimerData* iter:lmqtDataVec){
-						if(iter->receptionState == i){
+						if(iter->receptionState->interface == i->interface){
 							exist = true;
 							break;
 						}
 					}
 					if(!exist){
-						// click_chatter("trace5");
-
 						//we do not prune the group now because we first want to be sure there are no other interested members. See rfc 6.4.2 paragraph 4
 
 						//send groupspecific query on this interface
@@ -506,7 +459,6 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 						//this list is always empty
 						i->sourceList = rec.getSources();
 						//send change report
-						click_chatter("doing this");
 						MembershipQuery change = makeGroupSpecificQuery(rec.getMulticast().s_addr);
 				
 						//see here a pretty annoying way to set the last byte of the address to 254
@@ -538,7 +490,6 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 				}
 				//change to exclude mode
 				if(rec.getRecordType()==4 &&i->filterMode){
-					// click_chatter("trace2");
 					i->filterMode=false;
 
 
@@ -556,27 +507,20 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 				}
 				//type is already include or exclude so these are the Current-State Records
 				if(rec.getRecordType()==1||rec.getRecordType()==2){
-					// click_chatter("trace6");
 					//this list is always empty
 					i->sourceList = rec.getSources();
 
 					//quite an ugly method to see if we are on a broadcast address as src
 					uint32_t srcnormal=htonl(src.s_addr);
 					uint32_t final=srcnormal%256;
-					/**debug
-        			char char_arr [100];
-        			sprintf(char_arr, "%d", final);
-        			click_chatter(char_arr);
-					**/
         
 					//if final is 1 or 2 then we have 254 or 255at the end
-					// click_chatter("ist al kapot? %d",i->multicast);
 					if(final==1||final==2){
 						// here you might think, why do I create this new interface and delete the old one and not just set the filtermode to false
 						// Well the reason is because c++,click or I messed up te memory of this interfacestate somehow
 						// I just spent 9 hours trying to find this bug, which manifest itself with the interfacestate memory being overwritten when a packet gets cloned later on in the handleudppacket function
 						// Which causes this element to crash when it tries to send data to port 26000+ on the next udp packet
-						// Again I don't know why this happens, the interface memory gets deleted nowhere and the memory locations of this interfacestate (or the cloned packet in fact also don't get changed)
+						// Again I don't know why this happens, the interface memory gets deleted nowhere and the memory locations of this interfacestate (or the cloned packet in fact) don't get changed
 						// and aren't even that close to each other to be able to overwrite each other.
 						// So anyway the only fix I have found is to recreate the interfacestate object here in a new memorylocation and delete the old one.
 						InterfaceReceptionState* test= new InterfaceReceptionState();
@@ -607,7 +551,6 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 		}
 		//it didnt exist yet in the list so we need to make a new receptionState
 		if(!found){
-			// click_chatter("trace3");
 				InterfaceReceptionState* state = new InterfaceReceptionState(this);
 				state->interface=interface;
 				state->groupTimer=new Timer(this);
@@ -622,7 +565,6 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 
 				state->sourceList = rec.getSources();
 				state->multicast=rec.getMulticast();
-				click_chatter("ik voeg een interface state toe");
 				interfaces.push_back(state);
 		}
 	}

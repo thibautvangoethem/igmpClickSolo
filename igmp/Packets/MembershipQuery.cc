@@ -113,11 +113,19 @@ CLICK_DECLS
         unsigned int data_checksum_size = sizeof(MembershipQueryMessage)+(sizeof(uint32_t)*data->numberOfSources);
         if(click_in_cksum((const unsigned char *)data,data_checksum_size)){
             click_chatter("Checksum of MemberShipQuery was incorrect");
-            return MembershipQuery();
+            membership.setValid(false);
+            return membership;
         }
         
         return membership;
         
+    }
+
+    void MembershipQuery::setValid(bool valid){
+        isvalid=valid;
+    }
+	bool MembershipQuery::getValid(){
+        return isvalid;
     }
 
     void MembershipQuery::setReadIpSrc(in_addr src){

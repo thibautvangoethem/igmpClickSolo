@@ -50,6 +50,11 @@ void ClientInterface::push(int port, Packet* p)
     //packet is an igmp message
     if(port==0){
         MembershipQuery query=MembershipQuery::readPacket(p->uniqueify());
+        if(!query.getValid()){
+            click_chatter("Skipping query due to incorrect checksum");
+            return
+            p->kill();
+        }
         int robust=HelperFunc::deduceIntFromCode(query.getQRV());
         if(robust>7)robust=2;
         robustness=robust;
@@ -58,11 +63,9 @@ void ClientInterface::push(int port, Packet* p)
         if (this->mode == MODE_IS_EXCLUDE || this->mode == CHANGE_TO_EXCLUDE_MODE) {
             if(query.getReadIpDst()==igmpBroadcast||query.getReadIpDst()==this->currentJoinedGroup){
                 int resptime=HelperFunc::deduceIntFromCode(query.getMaxResp())*100;
-                //debug
-                //click_chatter("code int is %d",resptime);
                 this->mode = MODE_IS_EXCLUDE;
                 Packet* q = makeGroupRecordPacket(0);
-                sendRobustMembershipPacket(q,1,resptime);
+                sendRobustMembershipPacket(q,1,resptime,query.getReadIpDst()==igmpBroadcast);
             }
         }
         p->kill();
@@ -87,18 +90,24 @@ void ClientInterface::push(int port, Packet* p)
     }
 }
 
-void ClientInterface::expire(Packet* p,int sendsLeft){
+void ClientInterface::expire(Packet* p,int sendsLeft,bool stopOnInclude){
     if (Packet *q = p->clone())output(0).push(q);
     int interval=uri;
-    sendRobustMembershipPacket(p,sendsLeft,interval*1000);
+    sendRobustMembershipPacket(p,sendsLeft,interval*1000,stopOnInclude);
 };
 
 void ClientInterface::handleExpiry(Timer*, void * data){
     groupRecordTimerStruct * recordData = (groupRecordTimerStruct*) data;
-    recordData->me->expire(recordData->membershipPacket,recordData->sendsLeft);
+    if(recordData->stopOnInclude ){
+    if((recordData->me->mode == MODE_IS_EXCLUDE || recordData->me->mode == CHANGE_TO_EXCLUDE_MODE)){
+        recordData->me->expire(recordData->membershipPacket,recordData->sendsLeft,recordData->stopOnInclude );
+    }
+    }else{
+        recordData->me->expire(recordData->membershipPacket,recordData->sendsLeft,recordData->stopOnInclude );
+    }
 }
 
-void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxresp){ 
+void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxresp,bool stopOnInclude){ 
     if(maxresp==-1){
         maxresp=0;
         
@@ -108,8 +117,10 @@ void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxre
         timerdata->membershipPacket=p;
         timerdata->sendsLeft=left-1;
         timerdata->me = this;
+        timerdata->stopOnInclude=stopOnInclude;
         Timer* t = new Timer(&ClientInterface::handleExpiry,timerdata);
         t->initialize(this);
+        
         int interval=click_random(0,maxresp);
         t->schedule_after_msec(interval);
     }
@@ -131,7 +142,7 @@ int ClientInterface::join(const String &conf, Element *e, void* thunk, ErrorHand
 
         Packet* q = inter->makeGroupRecordPacket(0);
 
-        inter->sendRobustMembershipPacket(q,inter->getRobustness(),-1);
+        inter->sendRobustMembershipPacket(q,inter->getRobustness(),-1,false);
     }
 
     return 0;
@@ -151,7 +162,7 @@ int ClientInterface::leave(const String &conf, Element *e, void* thunk, ErrorHan
 
         inter->currentJoinedGroup.s_addr  = 0;
 
-        inter->sendRobustMembershipPacket(q,inter->robustness,-1);
+        inter->sendRobustMembershipPacket(q,inter->robustness,-1,false);
     }else{
         click_chatter("Tried to leave an address that a client is not joined on");
     }

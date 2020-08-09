@@ -30,6 +30,8 @@ class MembershipQuery: public Element {
 		in_addr readIpsrc;
 		in_addr readIpdst;
 
+		bool isvalid=true;
+
 
 	public:
 		~MembershipQuery () {};
@@ -52,6 +54,8 @@ class MembershipQuery: public Element {
 		int getQRV();
 		void setQRV(int qrv);
 		void setQQIC(int qqic);
+		void setValid(bool valid);
+		bool getValid();
 		int getQQIC();
 		void addSource(uint32_t source);
 		void setReadIpSrc(in_addr src);

@@ -29,6 +29,7 @@ class ClientInterface : public Element {
         ClientInterface* me;
         Packet* membershipPacket;
         int sendsLeft;
+        bool stopOnInclude;
     };
 
     public:
@@ -55,7 +56,7 @@ class ClientInterface : public Element {
         /**
          * This is placed in a seperate function so we can correctly start up the timers
          * */
-        void sendRobustMembershipPacket(Packet *q,int left,double maxresp);
+        void sendRobustMembershipPacket(Packet *q,int left,double maxresp,bool stopOnInclude);
 
         void add_handlers();
 
@@ -91,7 +92,7 @@ class ClientInterface : public Element {
 
         static void handleExpiry(Timer*, void *);
 
-        void expire(Packet*,int sendsLeft);
+        void expire(Packet*,int sendsLeft,bool stopOnInclude);
 
     
 };
