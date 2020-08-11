@@ -50,6 +50,8 @@ struct InterfaceReceptionState: public Element{
 	bool filterMode;
 	//this list is always empty because no join or leave is specific on sources.
 	Vector<in_addr> sourceList;
+	// used to not query any new specific queries while the timer is going for this group
+	bool timerRuning=false;
 };
 
 struct startUpQueryTimerData{
@@ -64,6 +66,8 @@ struct lastMemberQueryTimerData{
 	in_addr address;
 	InterfaceReceptionState* receptionState;
 	uint32_t srcInt;
+	int alreadyQueried;
+	bool final=false;
 };
 
 class IGMPRouterMembershipHandler : public Element { 

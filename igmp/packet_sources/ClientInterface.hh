@@ -24,12 +24,19 @@ class ClientInterface : public Element {
     int groupRecordType=0;
     bool invalidChecksum=false;
 
+    // 0 isnt sneding/shouldnt send on expire
+    // 1 answering general query
+    // 2 answering specific query
+    int timerStatus=0;
+    Timer* t;
+
     //timerStructs
     struct groupRecordTimerStruct{ // callback data
         ClientInterface* me;
         Packet* membershipPacket;
         int sendsLeft;
         bool stopOnInclude;
+        bool lookAtTimerStatus;
     };
 
     public:
@@ -56,7 +63,7 @@ class ClientInterface : public Element {
         /**
          * This is placed in a seperate function so we can correctly start up the timers
          * */
-        void sendRobustMembershipPacket(Packet *q,int left,double maxresp,bool stopOnInclude);
+        void sendRobustMembershipPacket(Packet *q,int left,double maxresp,bool stopOnInclude,bool isGeneral,bool isSpecific, bool isJoinOrLeave );
 
         void add_handlers();
 
@@ -89,6 +96,9 @@ class ClientInterface : public Element {
         void setIgmpAddress(in_addr newValue);
         void setGroupRecordType(int newValue);
         void setInvalidChecksum(bool newValue);
+
+        void setTimerStatus(int status);
+        int getTimerStatus();
 
         static void handleExpiry(Timer*, void *);
 
