@@ -168,10 +168,11 @@ void IGMPRouterMembershipHandler::expireLMQT(InterfaceReceptionState* receptionS
 
 void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, void * counter) {
 	lastMemberQueryTimerData* data = reinterpret_cast<lastMemberQueryTimerData *>(counter);
+	// this will send a query every lmqi as specified in rfc 6.4.2
 	data->count--;
 	if (data->count <= 0){
 		// this is the last expire, now the lmqt is ended and interface should be removed
-		if(data->final || data->alreadyQueried>data->me->lastMemberQueryInterval*100*data->me->robustnessVariable){
+		if(data->final || data->alreadyQueried>data->me->lastMemberQueryInterval*100*data->me->lastMemberQueryCount){
 			//though we never calculated the last member query time a simple rundown of the algorithm is enough to see that amount of time has now passed:
 			//last member query count * last member query interval
 			data->receptionState->filterMode = true;
@@ -181,33 +182,45 @@ void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, vo
 		// query a new timer for the end of the lmqt
 		}else{
 			data->final=true;
-			int toQuery= data->me->lastMemberQueryInterval*100*data->me->robustnessVariable-data->alreadyQueried;
+			int toQuery= data->me->lastMemberQueryInterval*100*data->me->lastMemberQueryCount-data->alreadyQueried;
 			data->alreadyQueried+=toQuery;
 			Timer* newLastMemberQueryTimer = new Timer(&IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer, data);
 			newLastMemberQueryTimer->initialize(data->me);		
 			newLastMemberQueryTimer->schedule_after_msec(toQuery);
 		}
 	}else{
-		//send query
-		MembershipQuery change = data->me->makeGroupSpecificQuery(data->address.s_addr);
-		change.setSFlag(true);
+		int alreadysend= data->me->lastMemberQueryCount-data->count;
+		if(data->alreadyQueried<alreadysend*data->interval){
+			data->count++;
+			//query a timer till next specific query send
+			int toQuery= alreadysend*data->interval-data->alreadyQueried;
+			data->alreadyQueried=alreadysend*data->interval;
+			Timer* newLastMemberQueryTimer = new Timer(&IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer, data);
+			newLastMemberQueryTimer->initialize(data->me);		
+			newLastMemberQueryTimer->schedule_after_msec(toQuery);
+		}else{
+			//send query
+			MembershipQuery change = data->me->makeGroupSpecificQuery(data->address.s_addr);
+			change.setSFlag(true);
 
-		uint32_t temp=htonl(255);
-		uint32_t srcint=data->srcInt;
-		uint32_t test=temp|srcint;
-		test-=htonl(1);
-		in_addr broadcast=in_addr();
-		broadcast.s_addr=test;					
-		WritablePacket * changepacket=change.addToPacket(0,broadcast,data->address,0, data->me->checksumValid);
+			uint32_t temp=htonl(255);
+			uint32_t srcint=data->srcInt;
+			uint32_t test=temp|srcint;
+			test-=htonl(1);
+			in_addr broadcast=in_addr();
+			broadcast.s_addr=test;					
+			WritablePacket * changepacket=change.addToPacket(0,broadcast,data->address,0, data->me->checksumValid);
 
-		data->me->output(data->receptionState->interface).push(changepacket);
+			data->me->output(data->receptionState->interface).push(changepacket);
 
-		//reset timer
-		int interval=click_random(0,data->me->lastMemberQueryInterval*100);
-		data->alreadyQueried+=interval;
-		Timer* newLastMemberQueryTimer = new Timer(&IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer, data);
-		newLastMemberQueryTimer->initialize(data->me);		
-		newLastMemberQueryTimer->schedule_after_msec(interval);
+			//reset timer
+			// int interval=click_random(0,data->me->lastMemberQueryInterval*100);
+			int interval=0;
+			data->alreadyQueried+=interval;
+			Timer* newLastMemberQueryTimer = new Timer(&IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer, data);
+			newLastMemberQueryTimer->initialize(data->me);		
+			newLastMemberQueryTimer->schedule_after_msec(interval);
+		}
 	}
 
 }
@@ -493,32 +506,20 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 
 						lastMemberQueryTimerData* lmqtData = new lastMemberQueryTimerData();
 						lmqtData->me = this;
-						lmqtData->count = 1;
+						lmqtData->count = lastMemberQueryCount;
+						lmqtData->interval = 100*lastMemberQueryInterval;
 						lmqtData->address = rec.getMulticast();
 						lmqtData->receptionState = i;
 						lmqtData->srcInt = src.s_addr;
 						Timer* newLastMemberQueryTimer = new Timer(&IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer, lmqtData);
 						newLastMemberQueryTimer->initialize(lmqtData->me);
-						int interval=click_random(0,lmqtData->me->lastMemberQueryInterval*100);
+						// int interval=click_random(0,lmqtData->me->lastMemberQueryInterval*100);
+						int interval=0;
 						newLastMemberQueryTimer->schedule_after_msec(interval);
 						lmqtDataVec.push_back(lmqtData);
 						break;
-					}else{
-						i->sourceList = rec.getSources();
-						//send change report
-						MembershipQuery change = makeGroupSpecificQuery(rec.getMulticast().s_addr);
-				
-						//see here a pretty annoying way to set the last byte of the address to 254
-						uint32_t temp=htonl(255);
-						uint32_t srcint=src.s_addr;
-						uint32_t test=temp|srcint;
-						test-=htonl(1);
-						in_addr broadcast=in_addr();
-						broadcast.s_addr=test;					
-						WritablePacket * changepacket=change.addToPacket(0,broadcast,rec.getMulticast(),0, checksumValid);
-
-						output(interface).push(changepacket);
 					}
+						
 				}
 				//change to exclude mode
 				if(rec.getRecordType()==4 &&i->filterMode){
@@ -568,7 +569,7 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 						}
 						test->sourceList=temp;
 						interfaces.push_back(test);
-						toErase.push_back(i);
+						toErase.push_back(i);						
 						
 					}
 
@@ -578,8 +579,32 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 			
 			}
 		}
-		for(int i=0;i<toErase.size();i++){
+		for(int i=toErase.size()-1;i>=0;i--){
 			removeInterface(toErase[i]);
+		}
+		// checking validity of the remaining interface (no duplicates this happens due to unknown reason)
+		Vector<int> toremove=Vector<int>();
+		for(int interface1=0;interface1<interfaces.size();interface1++){
+			for(int interface2=0;interface2<interfaces.size();interface2++){
+				if(interface1!=interface2){
+					if(interfaces[interface1]->interface==interfaces[interface2]->interface){
+						if(!interfaces[interface1]->filterMode && !interfaces[interface2]->filterMode ){
+							bool alreadyToRemove=false;
+							for(int i:toremove){
+								if(i==interface1|| i==interface2){
+									alreadyToRemove=true;
+								}
+							}
+							if(!alreadyToRemove){
+								toremove.push_front(interface1);
+							}
+						}
+					}
+				}
+			}
+		}
+		for(int remove:toremove){
+			removeInterface(interfaces[remove]);
 		}
 		//it didnt exist yet in the list so we need to make a new receptionState
 		if(!found){

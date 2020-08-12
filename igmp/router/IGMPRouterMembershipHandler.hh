@@ -63,6 +63,7 @@ struct startUpQueryTimerData{
 struct lastMemberQueryTimerData{
 	IGMPRouterMembershipHandler* me;
 	int count;
+	int interval;
 	in_addr address;
 	InterfaceReceptionState* receptionState;
 	uint32_t srcInt;
@@ -91,6 +92,7 @@ class IGMPRouterMembershipHandler : public Element {
 		static int setIGMPAddress(const String &conf, Element *e, void *thunk, ErrorHandler *errh);
 		static int setIGMPCheckSum(const String &conf, Element *e, void *thunk, ErrorHandler *errh);
 		void add_handlers();
+
 
 		in_addr getdst();
 		in_addr getn1();

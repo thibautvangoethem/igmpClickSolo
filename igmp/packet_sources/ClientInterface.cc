@@ -101,7 +101,6 @@ void ClientInterface::expire(Packet* p,int sendsLeft,bool stopOnInclude){
 void ClientInterface::handleExpiry(Timer*, void * data){
     groupRecordTimerStruct * recordData = (groupRecordTimerStruct*) data;
     if(recordData->lookAtTimerStatus&&recordData->me->getTimerStatus()==0){
-        click_chatter("not expiring because timerstatus at 0");
         return;
     }   
     recordData->me->expire(recordData->membershipPacket,recordData->sendsLeft,recordData->stopOnInclude );
@@ -129,7 +128,15 @@ void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxre
             ti->schedule_after_msec(interval);
         }else{
             // according to rfc paragraph  5.2
-            if(timerStatus==1){return;}
+            if(timerStatus==1){
+                if(isSpecific){
+                    timerStatus==0;
+                    t->schedule_now();
+                    timerStatus==2;
+                    int interval=click_random(0,maxresp);
+                    t->schedule_after_msec(interval);
+                }
+            }
             if(timerStatus==0){
                 t = new Timer(&ClientInterface::handleExpiry,timerdata);
                 t->initialize(this);
@@ -148,7 +155,7 @@ void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxre
             if(isSpecific){
                 timerStatus==0;
                 t->schedule_now();
-                timerStatus==1;
+                timerStatus==2;
                 int interval=click_random(0,maxresp);
                 t->schedule_after_msec(interval);
             }
@@ -181,6 +188,10 @@ int ClientInterface::join(const String &conf, Element *e, void* thunk, ErrorHand
 int ClientInterface::leave(const String &conf, Element *e, void* thunk, ErrorHandler * errh)
 {
     ClientInterface* inter = reinterpret_cast<ClientInterface*>(e);
+    // make sure no queried joina re still send after leave
+    if(inter->getTimerStatus()!=0){
+        inter->setTimerStatus(0);
+    }
     Vector<String> vconf;
     cp_argvec(conf, vconf);
     Vector<IPAddress> leave;
