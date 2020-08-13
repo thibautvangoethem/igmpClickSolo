@@ -52,6 +52,8 @@ struct InterfaceReceptionState: public Element{
 	Vector<in_addr> sourceList;
 	// used to not query any new specific queries while the timer is going for this group
 	bool timerRuning=false;
+
+	bool recentelyGotJoin=false;
 };
 
 struct startUpQueryTimerData{

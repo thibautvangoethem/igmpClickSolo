@@ -201,8 +201,8 @@ void IGMPRouterMembershipHandler::handleExpiryLastMemberQueryTimer(Timer * t, vo
 		}else{
 			//send query
 			MembershipQuery change = data->me->makeGroupSpecificQuery(data->address.s_addr);
-			change.setSFlag(true);
-
+			change.setSFlag(!data->receptionState->recentelyGotJoin);
+			data->receptionState->recentelyGotJoin=false;
 			uint32_t temp=htonl(255);
 			uint32_t srcint=data->srcInt;
 			uint32_t test=temp|srcint;
@@ -503,6 +503,7 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 						//set group
 						i->groupTimer->schedule_after_msec((uint32_t)(lastMemberQueryInterval*100));
 						i->timerRuning=true;
+						i->recentelyGotJoin=false;
 
 						lastMemberQueryTimerData* lmqtData = new lastMemberQueryTimerData();
 						lmqtData->me = this;
@@ -542,6 +543,7 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 				if(rec.getRecordType()==1||rec.getRecordType()==2){
 					//this list is always empty
 					i->sourceList = rec.getSources();
+					i->recentelyGotJoin=true;
 
 					//quite an ugly method to see if we are on a broadcast address as src
 					uint32_t srcnormal=htonl(src.s_addr);
@@ -563,6 +565,7 @@ void IGMPRouterMembershipHandler::handleMembershipReport(in_addr src,int interfa
 						test->groupTimer=new Timer(this);
 						test->groupTimer->initialize(this);
 						test->filterMode=false;
+						test->recentelyGotJoin=i->recentelyGotJoin;
 						Vector<in_addr> temp=Vector<in_addr>();
 						for(int j=0;j<temp.size();j++){
 							temp.push_back(i->sourceList[j]);
