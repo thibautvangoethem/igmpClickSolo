@@ -146,7 +146,12 @@ void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxre
                 t->schedule_after_msec(interval);   
             }
             if(timerStatus==2 && isGeneral){
-                timerStatus==0;
+                // schedule new general query on the "group timer" 
+                // Timer* ti = new Timer(&ClientInterface::handleExpiry,timerdata);
+                // ti->initialize(this);
+                // int interval=click_random(0,maxresp);
+                // ti->schedule_after_msec(interval);   
+                // we really only need to cancel and answer if the query already shceduled is general
                 t->schedule_now();
                 timerStatus==1;
                 int interval=click_random(0,maxresp);
