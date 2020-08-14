@@ -63,7 +63,7 @@ class ClientInterface : public Element {
         /**
          * This is placed in a seperate function so we can correctly start up the timers
          * */
-        void sendRobustMembershipPacket(Packet *q,int left,double maxresp,bool stopOnInclude,bool isGeneral,bool isSpecific, bool isJoinOrLeave );
+        void sendRobustMembershipPacket(Packet *q,int left,double maxresp,bool stopOnInclude,bool isGeneral,bool isSpecific, bool isJoinOrLeave ,bool process);
 
         void add_handlers();
 

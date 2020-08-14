@@ -65,7 +65,7 @@ void ClientInterface::push(int port, Packet* p)
                 int resptime=HelperFunc::deduceIntFromCode(query.getMaxResp())*100;
                 this->mode = MODE_IS_EXCLUDE;
                 Packet* q = makeGroupRecordPacket(0);
-                sendRobustMembershipPacket(q,1,resptime,query.getReadIpDst()==igmpBroadcast,query.getReadIpDst()==igmpBroadcast,query.getReadIpDst()==this->currentJoinedGroup,false);
+                sendRobustMembershipPacket(q,1,resptime,query.getReadIpDst()==igmpBroadcast,query.getReadIpDst()==igmpBroadcast,query.getReadIpDst()==this->currentJoinedGroup,false,query.getSFlag());
             }
         }
         p->kill();
@@ -94,7 +94,7 @@ void ClientInterface::expire(Packet* p,int sendsLeft,bool stopOnInclude){
     if (Packet *q = p->clone())output(0).push(q);
     int interval=uri;
     if(sendsLeft>0){
-        sendRobustMembershipPacket(p,sendsLeft-1,interval*1000,stopOnInclude,false,false,true);
+        sendRobustMembershipPacket(p,sendsLeft-1,interval*1000,stopOnInclude,false,false,true,false);
     }
 };
 
@@ -109,7 +109,7 @@ void ClientInterface::handleExpiry(Timer*, void * data){
     }
 }
 
-void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxresp,bool stopOnInclude,bool isGeneral,bool isSpecific,bool isJoinOrLeave){ 
+void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxresp,bool stopOnInclude,bool isGeneral,bool isSpecific,bool isJoinOrLeave, bool process){ 
     if(maxresp==-1){
         maxresp=0;
     }
@@ -129,12 +129,14 @@ void ClientInterface::sendRobustMembershipPacket(Packet *p,int left,double maxre
         }else{
             // according to rfc paragraph  5.2
             if(timerStatus==1){
-                if(isSpecific){
+                if(isSpecific && !process){
                     timerStatus==0;
                     t->schedule_now();
                     timerStatus==2;
                     int interval=click_random(0,maxresp);
                     t->schedule_after_msec(interval);
+                }else{
+                    return;
                 }
             }
             if(timerStatus==0){
@@ -184,7 +186,7 @@ int ClientInterface::join(const String &conf, Element *e, void* thunk, ErrorHand
 
         Packet* q = inter->makeGroupRecordPacket(0);
 
-        inter->sendRobustMembershipPacket(q,inter->getRobustness(),-1,false,false,false,true);
+        inter->sendRobustMembershipPacket(q,inter->getRobustness(),-1,false,false,false,true,false);
     }
 
     return 0;
@@ -208,7 +210,7 @@ int ClientInterface::leave(const String &conf, Element *e, void* thunk, ErrorHan
 
         inter->currentJoinedGroup.s_addr  = 0;
 
-        inter->sendRobustMembershipPacket(q,inter->robustness,-1,false,false,false,true);
+        inter->sendRobustMembershipPacket(q,inter->robustness,-1,false,false,false,true,false);
     }else{
         click_chatter("Tried to leave an address that a client is not joined on");
     }
